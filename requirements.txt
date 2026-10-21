@@ -5,3 +5,5 @@ python-dotenv
 pydantic
 pypdf
 langchain-text-splitters
+langchain-openai
+python-dotenv
