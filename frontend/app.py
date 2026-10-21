@@ -1,6 +1,7 @@
 import streamlit as st
 from pypdf import PdfReader
 from io import BytesIO
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 st.set_page_config(
     page_title="StudyMate RAG",
     page_icon="📚",
@@ -21,18 +22,20 @@ if uploaded_file is not None:
     for page_number,page in enumerate(reader.pages,start=1):
         page_text=page.extract_text() or ""
         extracted_text += (
-            f"\n---Page {page_number} ---\n"
             f"{page_text}\n"
         )
     st.subheader("Extracted PDF Text")
     if extracted_text.strip():
-        st.text_area(
-            "PDF content",
-            value=extracted_text,
-            height=400,
-        )
+       splitter=RecursiveCharacterTextSplitter(
+           chunk_size=500,
+           chunk_overlap=50,
+       )
+       chunks=splitter.split_text(extracted_text)
+       st.subheader("Chunking Results")
+       st.write("Total chunks:", len(chunks))
+       for index,chunk in enumerate(chunks,start=1):
+           with st.expander(f"Chunk {index}"):
+               st.write(chunk)
+               st.caption(f"Characters: {len(chunk)}")
     else:
-        st.warning(
-            "No readable text found."
-            "This PDF may contain scanned images."
-        )
+        st.warning("No readable text found in this PDF.")
