@@ -28,14 +28,21 @@ def connect_to_supabase()->PGVector:
     )
     return vectorstore
 
-def add_documents(documents:list[Document])->list[str]:
+def add_documents(documents:list[Document],ids:list[str])->list[str]:
     if not documents:
         return []
-    vectorstore=connect_to_supabase()
-    return vectorstore.add_documents(documents)
+    if len(documents) != len(ids):
+        raise ValueError("Each document must have exactly one ID.")
 
-def search_documents(query:str,k:int=4)->list[Document]:
+    if len(ids) != len(set(ids)):
+        raise ValueError("Duplicate chunk IDs found in this upload.")
+    vectorstore=connect_to_supabase()
+    return vectorstore.add_documents(documents=documents,ids=ids)
+
+def search_documents(query:str,k:int=4,user_id:str|None=None)->list[Document]:
     if not query.strip():
         raise ValueError("Search query cannot be empty.")
+    if not user_id:
+        raise ValueError("user_id is required for document search.")
     vectorstore=connect_to_supabase()
-    return vectorstore.similarity_search(query=query,k=k)
+    return vectorstore.similarity_search(query=query,k=k,filter={"user_id":user_id})
