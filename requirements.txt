@@ -11,3 +11,7 @@ langchain-postgres
 psycopg[binary]
 langchain-openai
 supabase
+langchain-community
+rank-bm25
+langchain-classic
+langchain_core
