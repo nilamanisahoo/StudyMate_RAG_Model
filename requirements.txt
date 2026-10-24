@@ -15,3 +15,4 @@ langchain-community
 rank-bm25
 langchain-classic
 langchain_core
+sentence-transformers

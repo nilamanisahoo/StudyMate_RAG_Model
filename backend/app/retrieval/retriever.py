@@ -5,6 +5,7 @@ from ..vectorstore.vectorstore import(
     connect_to_supabase,
     get_user_documents
 )
+from ..reranking.reranker import rerank_documents
 
 def create_hybrid_retriever(
         user_id:str,
@@ -45,5 +46,9 @@ def hybrid_search(
         raise ValueError("Search query cannot be empty.")
     retriever=create_hybrid_retriever(user_id=user_id,k=k)
     results=retriever.invoke(query)
-    return results
-
+    reranked_results=rerank_documents(
+        query=query,
+        documents=results,
+        top_k=k
+    )
+    return reranked_results
