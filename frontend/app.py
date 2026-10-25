@@ -5,7 +5,7 @@ from pypdf import PdfReader
 from io import BytesIO
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
-from backend.app.vectorstore.vectorstore import add_documents
+from backend.app.vectorstore.vectorstore import replace_pdf_documents
 from auth import (
     
     show_authentication,
@@ -53,8 +53,8 @@ if uploaded_file is not None:
     reader = PdfReader(pdf_bytes)
 
     splitter = RecursiveCharacterTextSplitter(
-        chunk_size=500,
-        chunk_overlap=50,
+        chunk_size=800,
+        chunk_overlap=100,
     )
 
     documents = []
@@ -128,9 +128,11 @@ if uploaded_file is not None:
         if st.button("Save PDF to Supabase"):
             try:
                 with st.spinner("Creating embeddings and saving chunks..."):
-                    stored_ids = add_documents(
+                    stored_ids = replace_pdf_documents(
                         documents=documents,
                         ids=chunk_ids,
+                        user_id=st.session_state["user"]["id"],
+                        pdf_hash=pdf_hash
                     )
 
                 st.success(

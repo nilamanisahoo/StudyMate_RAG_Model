@@ -40,6 +40,84 @@ def add_documents(documents:list[Document],ids:list[str])->list[str]:
     vectorstore=connect_to_supabase()
     return vectorstore.add_documents(documents=documents,ids=ids)
 
+
+def replace_pdf_documents(
+    documents: list[Document],
+    ids: list[str],
+    user_id: str,
+    pdf_hash: str,
+) -> list[str]:
+
+    if not documents:
+        raise ValueError("No readable PDF chunks were found.")
+
+    if len(documents) != len(ids):
+        raise ValueError("Each document must have exactly one ID.")
+
+    if len(ids) != len(set(ids)):
+        raise ValueError("Duplicate chunk IDs found.")
+
+    # Step 1: Check that every chunk belongs to this user and PDF.
+    for document in documents:
+        if document.metadata.get("user_id") != user_id:
+            raise ValueError("A chunk belongs to a different user.")
+
+        if document.metadata.get("pdf_hash") != pdf_hash:
+            raise ValueError("A chunk belongs to a different PDF.")
+
+    # Step 2: Get the PDF filename.
+    source = documents[0].metadata.get("source")
+
+    if not source:
+        raise ValueError("PDF filename is missing from metadata.")
+
+    # Step 3: Connect to Supabase.
+    vectorstore = connect_to_supabase()
+
+    # Step 4: Save the new chunks first.
+    # The same IDs are reused when the same PDF is uploaded again.
+    stored_ids = vectorstore.add_documents(
+        documents=documents,
+        ids=ids,
+    )
+
+    # Step 5: Find older versions of this PDF.
+    database_url = os.getenv("SUPABASE_DATABASE_URL")
+    engine = create_engine(database_url)
+
+    try:
+        with engine.connect() as connection:
+            result = connection.execute(
+                text("""
+                    SELECT e.id
+                    FROM langchain_pg_embedding AS e
+                    JOIN langchain_pg_collection AS c
+                        ON e.collection_id = c.uuid
+                    WHERE c.name = :collection_name
+                      AND e.cmetadata ->> 'user_id' = :user_id
+                      AND e.cmetadata ->> 'source' = :source
+                      AND e.cmetadata ->> 'pdf_hash'
+                          IS DISTINCT FROM :pdf_hash
+                """),
+                {
+                    "collection_name": "STUDYMATE Documents",
+                    "user_id": user_id,
+                    "source": source,
+                    "pdf_hash": pdf_hash,
+                },
+            )
+
+            old_ids = [str(row.id) for row in result]
+
+    finally:
+        engine.dispose()
+
+    # Step 6: Delete older versions after the new chunks are saved.
+    if old_ids:
+        vectorstore.delete(ids=old_ids)
+
+    return stored_ids
+
 def search_documents(query:str,k:int=4,user_id:str|None=None)->list[Document]:
     if not query.strip():
         raise ValueError("Search query cannot be empty.")
