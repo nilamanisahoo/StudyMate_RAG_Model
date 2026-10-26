@@ -19,15 +19,16 @@ def create_hybrid_retriever(
     if not documents:
         raise ValueError("No PDF found for this user in supabase.")
     vectorstore=connect_to_supabase()
+    candidate_k=max(k,12)
     semantic_retriever=vectorstore.as_retriever(
         search_kwargs={
-            "k":k,
+            "k":candidate_k,
             "filter":{"user_id":user_id}
         }
     )
     Keyword_retriever=BM25Retriever.from_documents(
         documents=documents,
-        k=k
+        k=candidate_k
     )
     hybrid_retriever=EnsembleRetriever(
         retrievers=[

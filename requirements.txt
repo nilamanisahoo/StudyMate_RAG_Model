@@ -6,13 +6,13 @@ pydantic
 pypdf
 langchain-text-splitters
 langchain-openai
-python-dotenv
 langchain-postgres
 psycopg[binary]
-langchain-openai
 supabase
 langchain-community
 rank-bm25
 langchain-classic
 langchain_core
 sentence-transformers
+pdfplumber
+python-dotenv

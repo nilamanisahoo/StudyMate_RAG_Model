@@ -1,32 +1,28 @@
+
 import hashlib
 import uuid
-import streamlit as st
-from pypdf import PdfReader
-from io import BytesIO
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_core.documents import Document
-from backend.app.vectorstore.vectorstore import replace_pdf_documents
-from auth import (
-    
-    show_authentication,
-    logout,
-)
 
-# Page configuration
+import streamlit as st
+
+from backend.app.ingestion.pdf_extractor import extract_pdf_documents
+from backend.app.ingestion.visual_analysis import analyze_all_pdf_pages
+from backend.app.vectorstore.vectorstore import replace_pdf_documents
+from auth import show_authentication, logout
 st.set_page_config(
     page_title="StudyMate RAG",
     page_icon="📚",
-    layout="wide"
+    layout="wide",
 )
 
+# Require login before showing the application.
 if not show_authentication():
     st.stop()
 
-# Logged-in user's application
+
 st.title("📚 StudyMate RAG")
 st.write("Your personal PDF question-answering assistant.")
 
-# Show the current user and logout button
+# Sidebar: logged-in user and logout.
 with st.sidebar:
     st.write("Logged in as:")
     st.write(st.session_state["user"]["email"])
@@ -35,9 +31,7 @@ with st.sidebar:
         logout()
 
 
-# PDF upload
-
-# PDF upload
+# Upload a PDF.
 uploaded_file = st.file_uploader(
     "Choose a PDF file",
     type=["pdf"],
@@ -46,65 +40,30 @@ uploaded_file = st.file_uploader(
 if uploaded_file is not None:
     pdf_content = uploaded_file.getvalue()
 
-    # Identify the PDF using its actual contents.
+    # Identify the exact PDF content.
     pdf_hash = hashlib.sha256(pdf_content).hexdigest()
+    user_id = st.session_state["user"]["id"]
+    st.write("Current user ID:", user_id)
 
-    pdf_bytes = BytesIO(pdf_content)
-    reader = PdfReader(pdf_bytes)
-
-    splitter = RecursiveCharacterTextSplitter(
-        chunk_size=800,
-        chunk_overlap=100,
-    )
-
-    documents = []
-    extracted_text = ""
-
-    # Extract text and create chunks from every page.
-    for page_number, page in enumerate(reader.pages, start=1):
-        page_text = page.extract_text() or ""
-        extracted_text += f"\n\n{page_text}"
-
-        if not page_text.strip():
-            continue
-
-        page_chunks = splitter.split_text(page_text)
-
-        for chunk_number, chunk in enumerate(page_chunks, start=1):
-            documents.append(
-                Document(
-                    page_content=chunk,
-                    metadata={
-                        "source": uploaded_file.name,
-                        "pdf_hash": pdf_hash,
-                        "page": page_number,
-                        "chunk": chunk_number,
-                        "user_id": st.session_state["user"]["id"],
-                    },
-                )
+    # Extract text and tables using our separate module.
+    try:
+        with st.spinner("Extracting PDF text and tables..."):
+            documents, extracted_text = extract_pdf_documents(
+                pdf_content=pdf_content,
+                source=uploaded_file.name,
+                user_id=user_id,
+                pdf_hash=pdf_hash,
             )
 
-    # Generate a stable ID for every chunk.
-    chunk_ids = []
+    except Exception as e:
+        st.error(f"PDF extraction failed: {e}")
+        st.stop()
 
-    for document in documents:
-        unique_key = (
-            f"{document.metadata['user_id']}:"
-            f"{document.metadata['pdf_hash']}:"
-            f"{document.metadata['page']}:"
-            f"{document.metadata['chunk']}"
-        )
+    st.success("PDF extraction completed!")
 
-        chunk_id = str(
-            uuid.uuid5(uuid.NAMESPACE_URL, unique_key)
-        )
+    st.write("Total chunks and tables:", len(documents))
 
-        chunk_ids.append(chunk_id)
-
-    # Display extracted text and chunks.
-    st.success("PDF uploaded successfully!")
-    st.write("Total pages:", len(reader.pages))
-
+    # Display extracted text.
     st.subheader("Extracted PDF Text")
 
     if extracted_text.strip():
@@ -113,34 +72,105 @@ if uploaded_file is not None:
             extracted_text,
             height=250,
         )
+    else:
+        st.info("No selectable text was extracted from this PDF.")
 
-        st.subheader("Chunking Results")
-        st.write("Total chunks:", len(documents))
+    # Display text chunks and table documents.
+    st.subheader("Extraction Results")
 
-        for index, document in enumerate(documents, start=1):
-            with st.expander(f"Chunk {index}"):
-                st.write(document.page_content)
-                st.caption(
-                    f"Page: {document.metadata['page']} | "
-                    f"Characters: {len(document.page_content)}"
-                )
+    text_count = sum(
+        doc.metadata.get("content_type") == "text"
+        for doc in documents
+    )
 
+    table_count = sum(
+        doc.metadata.get("content_type") == "table"
+        for doc in documents
+    )
+
+    col1, col2 = st.columns(2)
+    col1.metric("Text chunks", text_count)
+    col2.metric("Tables", table_count)
+
+    for index, document in enumerate(documents, start=1):
+        content_type = document.metadata.get("content_type", "text")
+        page_number = document.metadata.get("page", "?")
+
+        with st.expander(
+            f"{content_type.title()} {index} — Page {page_number}"
+        ):
+            st.write(document.page_content)
+            st.caption(f"Type: {content_type} | Page: {page_number}")
+
+ 
+    # Save text, table, and visual documents to Supabase.
+    if documents:
         if st.button("Save PDF to Supabase"):
             try:
-                with st.spinner("Creating embeddings and saving chunks..."):
+                with st.spinner(
+                    "Analyzing every PDF page for graphs, diagrams, "
+                    "images, and handwriting..."
+                ):
+                    visual_documents, failed_pages = analyze_all_pdf_pages(
+                        pdf_content=pdf_content,
+                        source=uploaded_file.name,
+                        user_id=user_id,
+                        pdf_hash=pdf_hash,
+                        dpi=150,
+                    )
+
+                # Combine text, tables, and visual descriptions.
+                all_documents = documents + visual_documents
+
+                # Generate deterministic IDs for all documents.
+                chunk_ids = []
+
+                for document in all_documents:
+                    unique_key = (
+                        f"{user_id}:"
+                        f"{pdf_hash}:"
+                        f"{document.metadata['page']}:"
+                        f"{document.metadata['content_type']}:"
+                        f"{document.metadata['chunk']}"
+                    )
+
+                    chunk_id = str(
+                        uuid.uuid5(uuid.NAMESPACE_URL, unique_key)
+                    )
+                    chunk_ids.append(chunk_id)
+
+                with st.spinner(
+                    "Creating embeddings and saving all documents..."
+                ):
                     stored_ids = replace_pdf_documents(
-                        documents=documents,
+                        documents=all_documents,
                         ids=chunk_ids,
-                        user_id=st.session_state["user"]["id"],
-                        pdf_hash=pdf_hash
+                        user_id=user_id,
+                        pdf_hash=pdf_hash,
                     )
 
                 st.success(
-                    f"Processed {len(stored_ids)} chunks successfully!"
+                    f"Saved {len(stored_ids)} documents successfully!"
                 )
+                st.write("Text and table documents:", len(documents))
+                st.write("Visual documents:", len(visual_documents))
+
+                if failed_pages:
+                    st.warning(
+                        f"Visual analysis failed for pages: {failed_pages}"
+                    )
+                else:
+                    st.success(
+                        "Visual analysis succeeded for every page."
+                    )
 
             except Exception as e:
-                st.error(f"Failed to save PDF: {e}")
+                st.error(f"Failed to process or save PDF: {e}")
 
     else:
-        st.warning("No readable text found in this PDF.")
+        st.warning(
+            "No selectable text or tables were extracted. "
+            "Scanned PDFs may still contain useful visual information, "
+            "but this save workflow currently requires at least one "
+            "text or table document."
+        )
