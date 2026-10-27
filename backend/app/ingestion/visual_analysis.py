@@ -47,15 +47,26 @@ def save_visual_cache(cache: dict) -> None:
         json.dump(cache, file, ensure_ascii=False, indent=2)
 
 
-def is_openrouter_inflight_error(error: Exception) -> bool:
-    """Identify OpenRouter's temporary in-flight budget error."""
-    error_text = str(error).lower()
+def is_non_retryable_gemini_error(error: Exception) -> bool:
+    """Identify Gemini errors that should stop further page analysis."""
 
-    return (
-        "in_flight_budget_exhausted" in error_text
-        or "openrouter_in_flight_budget" in error_text
+    error_text = str(error).lower()
+    status_code = getattr(error, "code", None)
+
+    # Stop if the service reports a budget or quota-related error.
+    budget_or_quota_errors = (
+        "in_flight_budget_exhausted",
+        "openrouter_in_flight_budget",
+        "resource_exhausted",
+        "quota_exceeded",
+        "billing",
     )
 
+    if any(message in error_text for message in budget_or_quota_errors):
+        return True
+
+    # Do not repeatedly retry permanent request or account errors.
+    return status_code in {400, 401, 402, 403, 404}
 
 def analyze_all_pdf_pages(
     pdf_content: bytes,
@@ -160,11 +171,10 @@ def analyze_all_pdf_pages(
                     )
 
                     # Stop immediately for this specific budget error.
-                    if is_openrouter_inflight_error(error):
+                    if is_non_retryable_gemini_error(error):
                         print(
-                            "OpenRouter's temporary in-flight "
-                            "budget limit was reached. "
-                            "Stopping the remaining page analysis."
+                            "A non-retryable Gemini error occurred. "
+                            "Stopping further visual analysis."
                         )
 
                         budget_limit_reached = True

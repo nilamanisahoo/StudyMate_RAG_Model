@@ -1,22 +1,21 @@
 
 from ..retrieval.retriever import create_hybrid_retriever
-from ..reranking.reranker import (
-    get_reranker,
-    rerank_documents,
-)
+from ..reranking.reranker import get_reranker
 
 
 def debug_retrieval(
     query: str,
     user_id: str,
     k: int = 4,
-    min_score: float = 0.0,
 ) -> None:
     if not query.strip():
         raise ValueError("Query cannot be empty.")
 
     if not user_id:
         raise ValueError("user_id is required.")
+
+    if k < 1:
+        raise ValueError("k must be at least 1.")
 
     retriever = create_hybrid_retriever(
         user_id=user_id,
@@ -44,45 +43,61 @@ def debug_retrieval(
         reverse=True,
     )
 
-    filtered_documents = rerank_documents(
-        query=query,
-        documents=candidates,
-        top_k=k,
-        min_score=min_score,
-    )
+    # Experimental thresholds for comparison only.
+    thresholds = [-2.0, -1.0, 0.0, 1.0, 2.0]
 
     print(f"\nQuestion: {query}")
-    print(f"Candidate chunks: {len(candidates)}")
-    print(f"Minimum score: {min_score}")
-    print(f"Qualifying chunks kept: {len(filtered_documents)}")
+    print(f"Retrieved candidates: {len(ranked)}")
 
-    print("\n--- Original ranking ---")
+    print("\n--- Threshold comparison ---")
+
+    for threshold in thresholds:
+        kept = [
+            (document, float(score))
+            for document, score in ranked
+            if float(score) >= threshold
+        ]
+
+        print(
+            f"Threshold {threshold:>5.1f}: "
+            f"{len(kept)} passages qualify; "
+            f"top {k} limit keeps {min(len(kept), k)}"
+        )
+
+    print("\n--- All candidates, ranked by score ---")
 
     for rank, (document, score) in enumerate(
-        ranked[:k],
+        ranked,
         start=1,
     ):
+        score = float(score)
         source = document.metadata.get("source", "Unknown PDF")
         page = document.metadata.get("page", "Unknown")
-        decision = "KEEP" if float(score) >= min_score else "REMOVE"
 
-        print(
-            f"\nRank {rank} | Score: {float(score):.4f}"
-            f" | {decision}"
-        )
+        print(f"\nRank: {rank} | Score: {score:.4f}")
         print(f"Source: {source} | Page: {page}")
-        print(document.page_content[:300])
+        print(document.page_content[:500])
 
-    print("\n--- Final filtered results ---")
+    print("\n--- Current production filter: min_score = 0.0 ---")
 
-    for rank, document in enumerate(
-        filtered_documents,
-        start=1,
-    ):
-        print(
-            f"{rank}. {document.metadata.get('source', 'Unknown PDF')}"
-            f" | Page {document.metadata.get('page', 'Unknown')}"
-        )
+    current_kept = [
+        (document, float(score))
+        for document, score in ranked
+        if float(score) >= 0.0
+    ][:k]
+
+    if not current_kept:
+        print("No passages qualify under the current threshold.")
+    else:
+        for rank, (document, score) in enumerate(
+            current_kept,
+            start=1,
+        ):
+            print(
+                f"{rank}. Score: {score:.4f} | "
+                f"{document.metadata.get('source', 'Unknown PDF')} | "
+                f"Page {document.metadata.get('page', 'Unknown')}"
+            )
 
 
 if __name__ == "__main__":
@@ -95,5 +110,4 @@ if __name__ == "__main__":
         query=question,
         user_id=user_id,
         k=4,
-        min_score=0.0,
     )

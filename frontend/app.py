@@ -1,7 +1,7 @@
 
 import hashlib
 import uuid
-
+from time import perf_counter
 import streamlit as st
 
 from backend.app.ingestion.pdf_extractor import extract_pdf_documents
@@ -106,6 +106,7 @@ if uploaded_file is not None:
     # Save text, table, and visual documents to Supabase.
     if documents:
         if st.button("Save PDF to Supabase"):
+            start_time = perf_counter()        
             try:
                 with st.spinner(
                     "Analyzing every PDF page for graphs, diagrams, "
@@ -152,6 +153,8 @@ if uploaded_file is not None:
                 st.success(
                     f"Saved {len(stored_ids)} documents successfully!"
                 )
+                elapsed_time = perf_counter() - start_time
+                st.info(f"Total PDF processing and saving time: {elapsed_time:.2f} seconds")
                 st.write("Text and table documents:", len(documents))
                 st.write("Visual documents:", len(visual_documents))
 

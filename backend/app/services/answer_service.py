@@ -16,7 +16,8 @@ def create_chat_model()->ChatOpenAI:
         model="gpt-4o-mini",
         api_key=api_key,
         base_url="https://openrouter.ai/api/v1",
-        temperature=0
+        temperature=0,
+        max_tokens=1200
     )
 
 def answer_question(

@@ -1,7 +1,8 @@
+python-dotenv
+google-genai
 fastapi
 uvicorn[standard]
 streamlit
-python-dotenv
 pydantic
 pypdf
 langchain-text-splitters
@@ -15,4 +16,4 @@ langchain-classic
 langchain_core
 sentence-transformers
 pdfplumber
-python-dotenv
+
