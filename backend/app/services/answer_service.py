@@ -17,7 +17,7 @@ def create_chat_model()->ChatOpenAI:
         api_key=api_key,
         base_url="https://openrouter.ai/api/v1",
         temperature=0,
-        max_tokens=1200
+        max_tokens=700
     )
 
 def answer_question(
@@ -32,6 +32,15 @@ def answer_question(
         user_id=user_id,
         k=k
     )
+    print("\n--- RETRIEVED DOCUMENTS ---")
+
+    for i, document in enumerate(documents, start=1):
+        print(f"\nDocument {i}")
+        print("Source:", document.metadata.get("source"))
+        print("Page:", document.metadata.get("page"))
+        print("Content:", document.page_content)
+
+    print("\n--- END RETRIEVED DOCUMENTS ---")
     if not documents:
         return {
             "answer": "I couldn't find relevant information in your PDFs.",
