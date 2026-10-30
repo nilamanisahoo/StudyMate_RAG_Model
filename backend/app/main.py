@@ -4,28 +4,36 @@ from fastapi import (
     FastAPI,
     HTTPException,
     status,
+    Request
 )
 from fastapi.security import (
     HTTPAuthorizationCredentials,
     HTTPBearer,
 )
+from slowapi import Limiter
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi import _rate_limit_exceeded_handler
 from .schemas.response import AnswerResponse
 from .schemas.ask import QuestionRequest
 from .authentication import verify_access_token
 from .services.answer_service import answer_question
 from .security.security_pipeline import SecurityPipeline
 
+limiter=Limiter(key_func=get_remote_address)
 app = FastAPI(
     title="StudyMate RAG API",
     description="Backend for the StudyMate PDF question-answering application",
     version="0.1.0",
 )
+app.state.limiter=limiter
+app.add_exception_handler(
+RateLimitExceeded,
+_rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
 
-# Read the Authorization: Bearer <token> header.
 bearer_scheme = HTTPBearer(auto_error=False)
-
-
-
 def get_current_user_id(
     credentials: HTTPAuthorizationCredentials | None = Depends(
         bearer_scheme
@@ -72,13 +80,15 @@ def health_check():
 
 
 @app.post("/ask",response_model=AnswerResponse)
+@limiter.limit("10/minute")
 def ask_question(
-    request: QuestionRequest,
+    request:Request,
+    question_request: QuestionRequest,
     user_id: str = Depends(get_current_user_id),
 ):
     try:
         cleaned_question,input_warnings=(
-            SecurityPipeline.process_input(request.question)
+            SecurityPipeline.process_input(question_request.question)
         )
         print(cleaned_question)
         result= answer_question(
