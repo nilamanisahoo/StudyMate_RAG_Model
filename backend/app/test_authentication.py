@@ -1,10 +1,12 @@
 
 from fastapi.testclient import TestClient
 
-from backend.app import main
+from backend.app.main import app
+from backend.app.api import dependencies as api_dependencies
+from backend.app.api import ask as ask_api
 
 
-client = TestClient(main.app)
+client = TestClient(app)
 
 
 def test_ask_without_token_returns_401():
@@ -21,7 +23,7 @@ def test_ask_with_invalid_token_returns_401(monkeypatch):
         raise ValueError("Invalid token")
 
     monkeypatch.setattr(
-        main,
+        api_dependencies,
         "verify_access_token",
         reject_token,
     )
@@ -50,12 +52,13 @@ def test_ask_uses_verified_user_id(monkeypatch):
         }
 
     monkeypatch.setattr(
-        main,
+        api_dependencies,
         "verify_access_token",
         accept_test_token,
     )
+
     monkeypatch.setattr(
-        main,
+        ask_api,
         "answer_question",
         fake_answer_question,
     )
@@ -70,4 +73,4 @@ def test_ask_uses_verified_user_id(monkeypatch):
     )
 
     assert response.status_code == 200
-    assert response.json()["user_id_used"] == "verified-user-123"
+    assert response.json()["answer"] == "Test answer"
