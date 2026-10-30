@@ -13,7 +13,7 @@ from .schemas.response import AnswerResponse
 from .schemas.ask import QuestionRequest
 from .authentication import verify_access_token
 from .services.answer_service import answer_question
-
+from .security.security_pipeline import SecurityPipeline
 
 app = FastAPI(
     title="StudyMate RAG API",
@@ -77,11 +77,24 @@ def ask_question(
     user_id: str = Depends(get_current_user_id),
 ):
     try:
-        return answer_question(
-            question=request.question,
+        cleaned_question,input_warnings=(
+            SecurityPipeline.process_input(request.question)
+        )
+        print(cleaned_question)
+        result= answer_question(
+            question=cleaned_question,
             user_id=user_id,
         )
+        cleaned_answer,output_warnings=(
+            SecurityPipeline.process_input(result["answer"])
+        )
+        for warning in input_warnings+output_warnings:
+            print("Security warning:", warning)
 
+        return AnswerResponse(
+            answer=cleaned_answer,
+            source=result.get("source",[])
+        )
     except ValueError as error:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
