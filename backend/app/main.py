@@ -20,13 +20,14 @@ from .schemas.ask import QuestionRequest
 from .authentication import verify_access_token
 from .services.answer_service import answer_question
 from .security.security_pipeline import SecurityPipeline
-
+from .security.security_headers import SecurityHeadersMiddleware
 limiter=Limiter(key_func=get_remote_address)
 app = FastAPI(
     title="StudyMate RAG API",
     description="Backend for the StudyMate PDF question-answering application",
     version="0.1.0",
 )
+app.add_middleware(SecurityHeadersMiddleware)
 app.state.limiter=limiter
 app.add_exception_handler(
 RateLimitExceeded,
@@ -111,10 +112,11 @@ def ask_question(
             detail=str(error),
         ) from error
 
-    except Exception as error:
-        print("Answer generation failed:", repr(error))
+    except Exception:
+        print("Answer generation failed.")
         traceback.print_exc()
+
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate an answer. Check the backend terminal. {error}",
-        ) from error
+            detail="Failed to generate an answer. Please try again later.",
+    )
