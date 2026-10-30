@@ -86,14 +86,14 @@ def ask_question(
             user_id=user_id,
         )
         cleaned_answer,output_warnings=(
-            SecurityPipeline.process_input(result["answer"])
+            SecurityPipeline.process_output(result["answer"])
         )
         for warning in input_warnings+output_warnings:
             print("Security warning:", warning)
 
         return AnswerResponse(
             answer=cleaned_answer,
-            source=result.get("source",[])
+            sources=result.get("sources",[])
         )
     except ValueError as error:
         raise HTTPException(
