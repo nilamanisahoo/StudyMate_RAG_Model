@@ -1,4 +1,4 @@
-
+import traceback
 from fastapi import (
     Depends,
     FastAPI,
@@ -9,8 +9,7 @@ from fastapi.security import (
     HTTPAuthorizationCredentials,
     HTTPBearer,
 )
-from pydantic import BaseModel, Field
-
+from .schemas.ask import QuestionRequest
 from .authentication import verify_access_token
 from .services.answer_service import answer_question
 
@@ -24,9 +23,6 @@ app = FastAPI(
 # Read the Authorization: Bearer <token> header.
 bearer_scheme = HTTPBearer(auto_error=False)
 
-
-class QuestionRequest(BaseModel):
-    question: str = Field(min_length=1)
 
 
 def get_current_user_id(
@@ -92,7 +88,9 @@ def ask_question(
         ) from error
 
     except Exception as error:
+        print("Answer generation failed:", repr(error))
+        traceback.print_exc()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to generate an answer. Check the backend terminal.",
+            detail=f"Failed to generate an answer. Check the backend terminal. {error}",
         ) from error
