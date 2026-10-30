@@ -9,6 +9,7 @@ from fastapi.security import (
     HTTPAuthorizationCredentials,
     HTTPBearer,
 )
+from .schemas.response import AnswerResponse
 from .schemas.ask import QuestionRequest
 from .authentication import verify_access_token
 from .services.answer_service import answer_question
@@ -70,7 +71,7 @@ def health_check():
     return {"status": "healthy"}
 
 
-@app.post("/ask")
+@app.post("/ask",response_model=AnswerResponse)
 def ask_question(
     request: QuestionRequest,
     user_id: str = Depends(get_current_user_id),
