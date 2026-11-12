@@ -1,8 +1,11 @@
-
+import os
 import requests
 import streamlit as st
 
-API_URL = "http://127.0.0.1:8000"
+API_URL = os.getenv(
+    "API_URL",
+    "http://127.0.0.1:8000"
+).rstrip("/")
 
 
 # -----------------------------------------
@@ -11,7 +14,7 @@ API_URL = "http://127.0.0.1:8000"
 
 def get_api_headers():
     access_token = st.session_state.get("access_token")
-
+    # st.write(f"{access_token}")
     return {
         "Authorization": f"Bearer {access_token}"
     }

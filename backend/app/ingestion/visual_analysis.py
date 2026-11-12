@@ -2,9 +2,8 @@
 import json
 from pathlib import Path
 from time import sleep
-
+from time import perf_counter
 from langchain_core.documents import Document
-
 from backend.app.ingestion.pdf_renderer import render_pdf_pages
 from backend.app.services.vision_service import analyze_page_image
 
@@ -145,11 +144,17 @@ def analyze_all_pdf_pages(
             # Step 6: Ask the vision model to analyze the page.
             for attempt in range(1, max_attempts + 1):
                 try:
+                    request_start = perf_counter()
                     result = analyze_page_image(
                         image_bytes=image_bytes,
                         source=source,
                         page_number=page_number,
                     )
+                    request_duration = perf_counter() - request_start
+                    print(
+    f"Gemini analysis for page {page_number} "
+    f"took {request_duration:.2f} seconds."
+)
 
                     if (
                         not isinstance(result, str)

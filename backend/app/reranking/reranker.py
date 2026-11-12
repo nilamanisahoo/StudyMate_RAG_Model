@@ -14,7 +14,8 @@ def rerank_documents(
     query: str,
     documents: list[Document],
     top_k: int = 4,
-    min_score: float = 0.0,
+    
+    
 ) -> list[Document]:
 
     if not query.strip():
@@ -43,15 +44,15 @@ def rerank_documents(
         reverse=True,
     )
 
-    # Remove chunks below the experimental minimum score.
-    filtered_documents = [
-        (document, float(score))
-        for document, score in scored_documents
-        if float(score) >= min_score
-    ]
+    # filtered_documents = [
+    #     (document, float(score))
+    #     for document, score in scored_documents
+    #     if float(score) >= min_score
+    # ]
 
     # Return no more than top_k qualifying documents.
     return [
         document
-        for document, score in filtered_documents[:top_k]
+        for document, score in scored_documents[:top_k]
     ]
+  
