@@ -16,4 +16,5 @@ langchain-classic
 langchain_core
 sentence-transformers
 pdfplumber
-
+slowapi
+requests
