@@ -5,11 +5,38 @@ import streamlit as st
 
 from api_client import API_URL, get_api_headers
 
-
 def render_pdf_upload():
     """Display the PDF uploader and process uploaded PDFs."""
 
     st.subheader("Upload your PDF")
+
+    # -----------------------------------------
+    # Select PDF processing mode
+    # -----------------------------------------
+
+    processing_mode = st.radio(
+        "Choose your PDF type:",
+        options=["normal", "handwritten"],
+        format_func=lambda x: (
+            "Normal PDF (Fast Processing)"
+            if x == "normal"
+            else "Handwritten PDF (Advanced Processing)"
+        ),
+        horizontal=True,
+    )
+
+    if processing_mode == "normal":
+        st.caption(
+            "For Word-converted PDFs, textbooks and typed notes."
+        )
+    else:
+        st.caption(
+            "For handwritten notes, scanned pages, equations and diagrams."
+        )
+
+    # -----------------------------------------
+    # Select PDF
+    # -----------------------------------------
 
     uploaded_file = st.file_uploader(
         "Choose a PDF file",
@@ -29,25 +56,23 @@ def render_pdf_upload():
         return
 
     # -----------------------------------------
-    # Identify the uploaded PDF
+    # Identify uploaded PDF
     # -----------------------------------------
 
     pdf_content = uploaded_file.getvalue()
-
     pdf_hash = hashlib.sha256(pdf_content).hexdigest()
 
-    if "uploaded_pdf_hash" not in st.session_state:
-        st.session_state["uploaded_pdf_hash"] = None
+    upload_key = f"{pdf_hash}:{processing_mode}"
 
     # -----------------------------------------
-    # Avoid uploading the same PDF again
+    # Avoid duplicate uploads
     # -----------------------------------------
 
-    if st.session_state["uploaded_pdf_hash"] == pdf_hash:
+    if st.session_state.get("uploaded_pdf_key") == upload_key:
 
         st.success(
             f"{uploaded_file.name} is already uploaded "
-            "in this session."
+            "using this processing mode."
         )
         return
 
@@ -57,8 +82,7 @@ def render_pdf_upload():
 
     try:
         with st.spinner(
-            "Uploading and processing your PDF. "
-            "Creating embeddings and saving to Supabase..."
+            "Processing your PDF. Please wait..."
         ):
 
             response = requests.post(
@@ -70,6 +94,9 @@ def render_pdf_upload():
                         pdf_content,
                         "application/pdf",
                     )
+                },
+                data={
+                    "processing_mode": processing_mode
                 },
                 timeout=(10, 600),
             )
@@ -86,8 +113,8 @@ def render_pdf_upload():
 
         result = response.json()
 
-        # Save the hash only after successful processing.
-        st.session_state["uploaded_pdf_hash"] = pdf_hash
+        # Save only after successful processing.
+        st.session_state["uploaded_pdf_key"] = upload_key
 
         st.success(
             f"Successfully processed {result['filename']}!"
@@ -109,14 +136,13 @@ def render_pdf_upload():
 
         st.error(
             "Cannot connect to FastAPI. "
-            "Please start the backend."
+            "Please check the backend."
         )
 
     except requests.exceptions.Timeout:
 
         st.error(
-            "PDF processing took too long. "
-            "Please try again."
+            "PDF processing took too long. Please try again."
         )
 
     except requests.exceptions.HTTPError:
@@ -126,7 +152,6 @@ def render_pdf_upload():
                 "detail",
                 "PDF processing failed.",
             )
-
         except ValueError:
             error_detail = "PDF processing failed."
 
@@ -134,9 +159,7 @@ def render_pdf_upload():
 
     except ValueError:
 
-        st.error(
-            "The API returned an invalid response."
-        )
+        st.error("The API returned an invalid response.")
 
     except KeyError as error:
 
