@@ -9,7 +9,6 @@ def render_pdf_upload():
     """Display the PDF uploader and process uploaded PDFs."""
 
     st.subheader("Upload your PDF")
-    st.success("NEW PDF UPLOAD VERSION - TEST")
     # -----------------------------------------
     # Select PDF processing mode
     # -----------------------------------------
