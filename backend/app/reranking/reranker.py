@@ -1,12 +1,20 @@
 
+import os
 from functools import lru_cache
 
-from sentence_transformers import CrossEncoder
 from langchain_core.documents import Document
 
 
 @lru_cache(maxsize=1)
-def get_reranker() -> CrossEncoder:
+def get_reranker():
+    """
+    Load CrossEncoder only when reranking is enabled.
+    """
+    if os.getenv("ENABLE_RERANKING", "false").lower() != "true":
+        return None
+
+    from sentence_transformers import CrossEncoder
+
     return CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
 
 
@@ -14,8 +22,6 @@ def rerank_documents(
     query: str,
     documents: list[Document],
     top_k: int = 4,
-    
-    
 ) -> list[Document]:
 
     if not query.strip():
@@ -29,6 +35,10 @@ def rerank_documents(
 
     reranker = get_reranker()
 
+    # If reranking is disabled, return the original retrieval results.
+    if reranker is None:
+        return documents[:top_k]
+
     pairs = [
         (query, document.page_content)
         for document in documents
@@ -38,21 +48,12 @@ def rerank_documents(
 
     scored_documents = list(zip(documents, scores))
 
-    # Highest score first.
     scored_documents.sort(
         key=lambda item: float(item[1]),
         reverse=True,
     )
 
-    # filtered_documents = [
-    #     (document, float(score))
-    #     for document, score in scored_documents
-    #     if float(score) >= min_score
-    # ]
-
-    # Return no more than top_k qualifying documents.
     return [
         document
         for document, score in scored_documents[:top_k]
     ]
-  
