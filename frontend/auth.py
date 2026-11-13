@@ -18,6 +18,16 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(PROJECT_ROOT / ".env")
 
 
+def get_config_value(name):
+    """Read configuration from Streamlit Secrets or local .env."""
+    try:
+        value = st.secrets.get(name)
+    except Exception:
+        value = None
+
+    return value or os.getenv(name)
+
+
 # -----------------------------------------
 # Browser-side Google OAuth component
 # -----------------------------------------
@@ -255,9 +265,9 @@ def get_supabase_client():
 
     if "supabase_client" not in st.session_state:
 
-        url = os.getenv("SUPABASE_URL")
+        url =get_config_value("SUPABASE_URL")
 
-        key = os.getenv("SUPABASE_KEY")
+        key = get_config_value("SUPABASE_KEY")
 
         if not url or not key:
 
@@ -372,9 +382,9 @@ def google_login():
 
     """Display Google login and handle browser-side logout."""
 
-    url = os.getenv("SUPABASE_URL")
+    url = get_config_value("SUPABASE_URL")
 
-    key = os.getenv("SUPABASE_KEY")
+    key = get_config_value("SUPABASE_KEY")
 
     if not url or not key:
 
