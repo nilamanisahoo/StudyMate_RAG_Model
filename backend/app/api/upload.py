@@ -7,6 +7,7 @@ from fastapi import (
     APIRouter,
     Depends,
     File,
+    Form,
     HTTPException,
     Request,
     UploadFile,
@@ -29,19 +30,29 @@ MAX_PDF_SIZE = 20 * 1024 * 1024  # 20 MB
 def upload_pdf(
     request: Request,
     file: UploadFile = File(...),
+    processing_mode: str = Form("normal"),
     user_id: str = Depends(get_current_user_id),
 ):
-    """Upload, process, embed, and save a user's PDF."""
+    """Upload and process a PDF using the selected processing mode."""
 
     try:
-        # 1. Validate the filename.
+        # 1. Validate processing mode.
+        processing_mode = processing_mode.strip().lower()
+
+        if processing_mode not in ["normal", "handwritten"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid PDF processing mode.",
+            )
+
+        # 2. Validate filename.
         if not file.filename or not file.filename.lower().endswith(".pdf"):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Please upload a PDF file.",
             )
 
-        # 2. Read the PDF.
+        # 3. Read PDF.
         pdf_content = file.file.read()
 
         if not pdf_content:
@@ -56,7 +67,7 @@ def upload_pdf(
                 detail="PDF size cannot exceed 20 MB.",
             )
 
-        # 3. Check whether the file has a PDF signature.
+        # 4. Validate PDF signature.
         if not pdf_content.startswith(b"%PDF-"):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -67,9 +78,10 @@ def upload_pdf(
         pdf_hash = hashlib.sha256(pdf_content).hexdigest()
 
         print(f"Processing PDF: {source}")
+        print(f"Processing mode: {processing_mode}")
         print(f"User ID: {user_id}")
 
-        # 4. Extract text and tables.
+        # 5. Extract text and tables.
         documents, extracted_text = extract_pdf_documents(
             pdf_content=pdf_content,
             source=source,
@@ -77,16 +89,26 @@ def upload_pdf(
             pdf_hash=pdf_hash,
         )
 
-        # 5. Analyze graphs, diagrams, images, and handwriting.
-        visual_documents, failed_pages = analyze_all_pdf_pages(
-            pdf_content=pdf_content,
-            source=source,
-            user_id=user_id,
-            pdf_hash=pdf_hash,
-            dpi=150,
-        )
+        # 6. Run visual analysis only for handwritten PDFs.
+        visual_documents = []
+        failed_pages = []
 
-        # 6. Combine all extracted documents.
+        if processing_mode == "handwritten":
+
+            print("Starting advanced visual analysis.")
+
+            visual_documents, failed_pages = analyze_all_pdf_pages(
+                pdf_content=pdf_content,
+                source=source,
+                user_id=user_id,
+                pdf_hash=pdf_hash,
+                dpi=150,
+            )
+
+        else:
+            print("Normal PDF mode: skipping Gemini visual analysis.")
+
+        # 7. Combine extracted documents.
         all_documents = documents + visual_documents
 
         if not all_documents:
@@ -98,10 +120,11 @@ def upload_pdf(
                 ),
             )
 
-        # 7. Generate a stable unique ID for each document.
+        # 8. Generate stable document IDs.
         document_ids = []
 
         for document in all_documents:
+
             unique_key = (
                 f"{user_id}:"
                 f"{pdf_hash}:"
@@ -116,7 +139,7 @@ def upload_pdf(
 
             document_ids.append(document_id)
 
-        # 8. Generate embeddings and save documents in Supabase.
+        # 9. Generate embeddings and save to Supabase.
         stored_ids = replace_pdf_documents(
             documents=all_documents,
             ids=document_ids,
@@ -124,10 +147,11 @@ def upload_pdf(
             pdf_hash=pdf_hash,
         )
 
-        # 9. Return the upload result.
+        # 10. Return upload result.
         return {
             "message": "PDF uploaded and processed successfully.",
             "filename": source,
+            "processing_mode": processing_mode,
             "pdf_hash": pdf_hash,
             "total_documents": len(stored_ids),
             "text_and_table_documents": len(documents),
