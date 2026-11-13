@@ -1,10 +1,8 @@
 
 import os
 from pathlib import Path
-
 from dotenv import load_dotenv
 from langchain_openai import OpenAIEmbeddings
-
 project_root = Path(__file__).resolve().parents[3]
 load_dotenv(project_root / ".env")
 

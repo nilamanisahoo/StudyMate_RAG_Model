@@ -12,7 +12,7 @@ project_root = Path(__file__).resolve().parents[3]
 load_dotenv(project_root / ".env")
 
 # Keep embedding requests small to avoid provider token limits.
-EMBEDDING_BATCH_SIZE = 50
+EMBEDDING_BATCH_SIZE = 5
 
 def connect_to_supabase() -> PGVector:
 
