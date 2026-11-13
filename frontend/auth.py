@@ -189,7 +189,7 @@ export default function ({data, parentElement, setStateValue}) {
             if (oauthData.url) {
 
                 // Open Google login in the main browser window.
-                window.top.location.href = oauthData.url;
+                window.open(oauthData.url, "_blank");
 
             } else {
 
