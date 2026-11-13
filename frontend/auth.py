@@ -87,170 +87,189 @@ google_auth_component = st.components.v2.component(
     """,
 
     js="""
-        export default function ({data, parentElement, setStateValue}) {
 
-            const button = parentElement.querySelector(
-                "#google-login-button"
-            );
+export default function ({data, parentElement, setStateValue}) {
 
-            const status = parentElement.querySelector(
-                "#google-login-status"
-            );
+    const button = parentElement.querySelector(
+        "#google-login-button"
+    );
 
-            if (!button || button.dataset.bound === "true") return;
+    const status = parentElement.querySelector(
+        "#google-login-status"
+    );
 
-            button.dataset.bound = "true";
+    if (!button || button.dataset.bound === "true") return;
 
-            let clientPromise;
+    button.dataset.bound = "true";
 
-            async function getClient() {
+    let clientPromise;
 
-                if (!clientPromise) {
+    async function getClient() {
 
-                    clientPromise = import(
-                        "https://esm.sh/@supabase/supabase-js@2"
-                    ).then(({createClient}) => {
+        if (!clientPromise) {
 
-                        return createClient(data.url, data.key, {
-                            auth: {
-                                flowType: "pkce",
-                                persistSession: true,
-                                autoRefreshToken: true,
-                                detectSessionInUrl: true
-                            }
-                        });
+            clientPromise = import(
+                "https://esm.sh/@supabase/supabase-js@2"
+            ).then(({createClient}) => {
 
-                    });
+                return createClient(data.url, data.key, {
+                    auth: {
+                        flowType: "pkce",
+                        persistSession: true,
+                        autoRefreshToken: true,
+                        detectSessionInUrl: true
+                    }
+                });
+
+            });
+        }
+
+        return clientPromise;
+    }
+
+    async function publishSession(client) {
+
+        const {data: result, error} =
+            await client.auth.getSession();
+
+        if (error) {
+            status.textContent = error.message;
+            return;
+        }
+
+        if (result.session) {
+
+            setStateValue("session", {
+
+                access_token: result.session.access_token,
+
+                refresh_token: result.session.refresh_token,
+
+                user: {
+                    id: result.session.user.id,
+                    email: result.session.user.email
                 }
 
-                return clientPromise;
+            });
+        }
+    }
+
+    // Google login
+    button.onclick = async () => {
+
+        button.disabled = true;
+
+        status.textContent = "Connecting to Google...";
+
+        try {
+
+            const client = await getClient();
+
+            const {data: oauthData, error} =
+                await client.auth.signInWithOAuth({
+
+                    provider: "google",
+
+                    options: {
+                        redirectTo: window.location.origin,
+                        skipBrowserRedirect: true
+                    }
+
+                });
+
+            if (error) {
+
+                status.textContent = error.message;
+
+                button.disabled = false;
+
+                return;
             }
 
-            async function publishSession(client) {
+            if (oauthData.url) {
 
-                const {data: result, error} =
-                    await client.auth.getSession();
+                // Open Google login in the main browser window.
+                window.top.location.href = oauthData.url;
+
+            } else {
+
+                status.textContent =
+                    "Could not generate Google login URL.";
+
+                button.disabled = false;
+            }
+
+        } catch (error) {
+
+            status.textContent =
+                error.message || "Google login failed.";
+
+            button.disabled = false;
+        }
+    };
+
+    getClient()
+
+        .then(async (client) => {
+
+            // Handle logout.
+            if (data.logout_requested) {
+
+                const {error} = await client.auth.signOut();
 
                 if (error) {
-                    status.textContent = error.message;
+
+                    status.textContent =
+                        "Logout failed: " + error.message;
+
                     return;
                 }
 
-                if (result.session) {
+                setStateValue("session", null);
 
-                    setStateValue("session", {
+                setStateValue("logout_complete", true);
 
-                        access_token: result.session.access_token,
+                status.textContent = "You have been logged out.";
 
-                        refresh_token: result.session.refresh_token,
-
-                        user: {
-                            id: result.session.user.id,
-                            email: result.session.user.email
-                        }
-
-                    });
-                }
+                return;
             }
 
-            button.onclick = async () => {
+            // Restore existing login session.
+            await publishSession(client);
 
-                button.disabled = true;
+            client.auth.onAuthStateChange(
+                (event, session) => {
 
-                status.textContent = "Connecting to Google...";
+                    if (session) {
 
-                try {
+                        setStateValue("session", {
 
-                    const client = await getClient();
+                            access_token: session.access_token,
 
-                    const {error} =
-                        await client.auth.signInWithOAuth({
+                            refresh_token: session.refresh_token,
 
-                            provider: "google",
-
-                            options: {
-                                redirectTo: window.location.origin
+                            user: {
+                                id: session.user.id,
+                                email: session.user.email
                             }
 
                         });
 
-                    if (error) {
-
-                        status.textContent = error.message;
-
-                        button.disabled = false;
                     }
-
-                } catch (error) {
-
-                    status.textContent =
-                        error.message || "Google login failed.";
-
-                    button.disabled = false;
                 }
-            };
+            );
 
-            getClient()
+        })
 
-                .then(async (client) => {
+        .catch((error) => {
 
-                    // Handle logout.
-                    if (data.logout_requested) {
+            status.textContent =
+                "Could not initialize Google login: " +
+                error.message;
 
-                        const {error} = await client.auth.signOut();
+        });
+}
 
-                        if (error) {
-
-                            status.textContent =
-                                "Logout failed: " + error.message;
-
-                            return;
-                        }
-
-                        setStateValue("session", null);
-
-                        setStateValue("logout_complete", true);
-
-                        status.textContent = "You have been logged out.";
-
-                        return;
-                    }
-
-                    // Restore existing login session.
-                    await publishSession(client);
-
-                    client.auth.onAuthStateChange(
-                        (event, session) => {
-
-                            if (session) {
-
-                                setStateValue("session", {
-
-                                    access_token: session.access_token,
-
-                                    refresh_token: session.refresh_token,
-
-                                    user: {
-                                        id: session.user.id,
-                                        email: session.user.email
-                                    }
-
-                                });
-
-                            }
-                        }
-                    );
-
-                })
-
-                .catch((error) => {
-
-                    status.textContent =
-                        "Could not initialize Google login: " +
-                        error.message;
-
-                });
-        }
     """
 )
 
