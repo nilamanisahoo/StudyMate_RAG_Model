@@ -157,8 +157,16 @@ export default function ({data, parentElement, setStateValue}) {
     // Google login
     button.onclick = async () => {
 
-        button.disabled = true;
+        // Open a blank tab immediately during the button click.
+        const loginTab = window.open("about:blank", "_blank");
 
+        if (!loginTab) {
+            status.textContent =
+                "Please allow pop-ups for this website.";
+            return;
+        }
+
+        button.disabled = true;
         status.textContent = "Connecting to Google...";
 
         try {
@@ -179,6 +187,8 @@ export default function ({data, parentElement, setStateValue}) {
 
             if (error) {
 
+                loginTab.close();
+
                 status.textContent = error.message;
 
                 button.disabled = false;
@@ -188,10 +198,12 @@ export default function ({data, parentElement, setStateValue}) {
 
             if (oauthData.url) {
 
-                // Open Google login in the main browser window.
-                window.open(oauthData.url, "_blank");
+                // Navigate the newly opened tab to Google login.
+                loginTab.location.href = oauthData.url;
 
             } else {
+
+                loginTab.close();
 
                 status.textContent =
                     "Could not generate Google login URL.";
@@ -200,6 +212,8 @@ export default function ({data, parentElement, setStateValue}) {
             }
 
         } catch (error) {
+
+            loginTab.close();
 
             status.textContent =
                 error.message || "Google login failed.";
@@ -269,6 +283,7 @@ export default function ({data, parentElement, setStateValue}) {
 
         });
 }
+
 
     """
 )
