@@ -13,7 +13,7 @@ def show_elapsed_timer(label):
         <div style="
             font-family: Arial, sans-serif;
             padding: 8px 0;
-            color: inherit;
+            color: #FFFFFF;
         ">
             <span style="font-size: 14px;">
                 {safe_label}

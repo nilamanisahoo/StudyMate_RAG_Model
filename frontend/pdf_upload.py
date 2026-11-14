@@ -2,7 +2,7 @@
 import hashlib
 import requests
 import streamlit as st
-from frontend.timer import show_elapsed_timer
+from timer import show_elapsed_timer
 from api_client import API_URL, get_api_headers
 
 def render_pdf_upload():

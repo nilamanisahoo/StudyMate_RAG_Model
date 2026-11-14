@@ -358,56 +358,17 @@ def save_user_session(response):
 # -----------------------------------------
 
 def handle_oauth_callback():
-
-    """Exchange Google OAuth code for a Supabase session."""
+    """Handle OAuth errors. Browser-side Supabase handles PKCE exchange."""
 
     error = st.query_params.get("error")
-
-    error_description = st.query_params.get(
-        "error_description"
-    )
+    error_description = st.query_params.get("error_description")
 
     if error:
-
         st.error(
             f"Google OAuth error: {error} - "
             f"{error_description or 'No details provided'}"
         )
-
-        return
-
-    code = st.query_params.get("code")
-
-    if not code:
-        return
-
-    supabase = get_supabase_client()
-
-   
-
-    response = supabase.auth.exchange_code_for_session(
-            {"auth_code": code}
-        )
-
-    if save_user_session(response):
-
-            st.query_params.clear()
-
-            st.rerun()
-
-    else:
-
-            st.error(
-                "Google login returned no valid session."
-            )
-
-    # except Exception:
-
-    #     st.error("Google login failed.")
-
-    #     st.exception(Exception("Could not exchange OAuth code"))
-
-
+        st.query_params.clear()
 # -----------------------------------------
 # Google login interface
 # -----------------------------------------
@@ -473,7 +434,7 @@ def google_login():
         st.session_state["refresh_token"] = (
             session.get("refresh_token")
         )
-
+        st.query_params.clear()
         st.rerun()
 
 

@@ -22,7 +22,7 @@ def show_copy_button(answer, button_id):
                 background: transparent;
                 cursor: pointer;
                 font-size: 14px;
-                colour: white;
+                color: white;
             "
         >
             📋 Copy Answer
