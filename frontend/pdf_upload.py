@@ -2,7 +2,7 @@
 import hashlib
 import requests
 import streamlit as st
-
+from frontend.timer import show_elapsed_timer
 from api_client import API_URL, get_api_headers
 
 def render_pdf_upload():
@@ -78,12 +78,11 @@ def render_pdf_upload():
     # -----------------------------------------
     # Upload and process PDF
     # -----------------------------------------
-
+    timer_placeholder=None
     try:
-        with st.spinner(
-            "Processing your PDF. Please wait..."
-        ):
-
+        timer_placeholder = st.empty()
+        with timer_placeholder.container():
+            show_elapsed_timer("Processing your PDF...")
             response = requests.post(
                 f"{API_URL}/upload",
                 headers=get_api_headers(),
@@ -99,7 +98,7 @@ def render_pdf_upload():
                 },
                 timeout=(10, 600),
             )
-
+            timer_placeholder.empty()
         if response.status_code == 401:
 
             st.error(
@@ -165,3 +164,6 @@ def render_pdf_upload():
         st.error(
             f"The API response is missing a required field: {error}"
         )
+    finally:
+        if timer_placeholder is not None:
+            timer_placeholder.empty()

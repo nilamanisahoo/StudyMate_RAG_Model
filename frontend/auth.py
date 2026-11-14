@@ -383,29 +383,29 @@ def handle_oauth_callback():
 
     supabase = get_supabase_client()
 
-    try:
+   
 
-        response = supabase.auth.exchange_code_for_session(
+    response = supabase.auth.exchange_code_for_session(
             {"auth_code": code}
         )
 
-        if save_user_session(response):
+    if save_user_session(response):
 
             st.query_params.clear()
 
             st.rerun()
 
-        else:
+    else:
 
             st.error(
                 "Google login returned no valid session."
             )
 
-    except Exception:
+    # except Exception:
 
-        st.error("Google login failed.")
+    #     st.error("Google login failed.")
 
-        st.exception(Exception("Could not exchange OAuth code"))
+    #     st.exception(Exception("Could not exchange OAuth code"))
 
 
 # -----------------------------------------

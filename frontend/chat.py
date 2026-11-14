@@ -1,7 +1,7 @@
 
 import requests
 import streamlit as st
-
+from frontend.timer import show_elapsed_timer
 from api_client import (
     API_URL,
     get_api_headers,
@@ -139,16 +139,18 @@ def render_chat():
     # -----------------------------------------
     # Step 6: Get answer from RAG API
     # -----------------------------------------
-
+    timer_placeholder=None
     try:
 
         with st.chat_message("assistant"):
 
-            with st.spinner(
-                "Searching your PDFs and preparing an answer..."
-            ):
+            timer_placeholder = st.empty()
 
-                response = requests.post(
+            with timer_placeholder.container():
+
+                show_elapsed_timer("Searching PDFs and generating answer...")
+
+            response = requests.post(
                     f"{API_URL}/ask",
                     headers=get_api_headers(),
                     json={
@@ -156,7 +158,7 @@ def render_chat():
                     },
                     timeout=90,
                 )
-
+            timer_placeholder.empty()
             # Handle expired login session.
             if response.status_code == 401:
 
@@ -252,3 +254,6 @@ def render_chat():
         st.error(
             "The API returned an invalid response."
         )
+    finally:
+        if timer_placeholder is not None:
+            timer_placeholder.empty()
