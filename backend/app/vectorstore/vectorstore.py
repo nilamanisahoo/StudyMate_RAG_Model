@@ -14,21 +14,21 @@ load_dotenv(project_root / ".env")
 # Keep embedding requests small to avoid provider token limits.
 EMBEDDING_BATCH_SIZE = 5
 
+
 def connect_to_supabase() -> PGVector:
 
     database_url = os.getenv("SUPABASE_DATABASE_URL")
-    api_key = os.getenv("OPENROUTER_API_KEY")
+    api_key = os.getenv("OPENAI_API_KEY")
 
     if not database_url:
         raise ValueError("SUPABASE_DATABASE_URL is missing.")
 
     if not api_key:
-        raise ValueError("OPENROUTER_API_KEY is missing.")
+        raise ValueError("OPENAI_API_KEY is missing.")
 
     embeddings = OpenAIEmbeddings(
         model="text-embedding-3-small",
         api_key=api_key,
-        base_url="https://openrouter.ai/api/v1",
         chunk_size=EMBEDDING_BATCH_SIZE,
     )
 
@@ -40,6 +40,7 @@ def connect_to_supabase() -> PGVector:
     )
 
     return vectorstore
+
 
 def add_documents(
     documents: list[Document],
