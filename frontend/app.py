@@ -5,7 +5,6 @@ import requests
 
 from pathlib import Path
 from dotenv import load_dotenv
-
 from auth import show_authentication
 from api_client import get_shared_conversation_api
 from sidebar import render_sidebar
