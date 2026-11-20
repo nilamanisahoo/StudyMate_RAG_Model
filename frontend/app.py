@@ -93,6 +93,16 @@ if not show_authentication():
 # -----------------------------------------
 
 user_id = st.session_state["user"]["id"]
+# TEMPORARY: Display Bearer token for local API testing
+token = st.session_state.get("access_token")
+
+# if token:
+#     st.text_input(
+#         "Bearer Token (Temporary)",
+#         value=token,
+#         type="password",
+#     )
+#     st.write(f"{token}")
 
 # Reset chat data when a different user logs in.
 if st.session_state.get("chat_owner_id") != user_id:

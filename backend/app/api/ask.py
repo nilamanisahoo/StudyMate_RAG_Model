@@ -116,25 +116,33 @@ def ask_question(
         except Exception as error:
             error_occurred = True
 
-            logger.error(
-                "Answer generation failed",
-                extra={
-                    "extra_data": {
-                        "user_id": user_id,
-                        "error": str(error),
-                    }
-                },
-            )
-
-            traceback.print_exc()
-
+            # logger.error(
+            #     "Answer generation failed",
+            #     extra={
+            #         "extra_data": {
+            #             "user_id": user_id,
+            #             "error": str(error),
+            #         }
+            #     },
+            # )
+            logger.exception(
+    "Answer generation failed for user_id=%s",
+    user_id,
+)           
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=(
-                    "Failed to generate an answer. "
-                    "Please try again later."
-                ),
-            ) from error
+    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+    detail=f"Failed to generate an answer: {str(error)}",
+) from error
+
+            # traceback.print_exc()
+
+            # raise HTTPException(
+            #     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            #     detail=(
+            #         "Failed to generate an answer. "
+            #         "Please try again later."
+            #     ),
+            # ) from error
 
         finally:
             # Step 8: Record request performance metrics.

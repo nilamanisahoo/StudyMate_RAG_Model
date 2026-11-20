@@ -1,9 +1,8 @@
 
 import os
 from pathlib import Path
-
 from dotenv import load_dotenv
-from langchain_openai import OpenAIEmbeddings
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_postgres import PGVector
 from langchain_core.documents import Document
 from sqlalchemy import create_engine, text
@@ -12,24 +11,24 @@ project_root = Path(__file__).resolve().parents[3]
 load_dotenv(project_root / ".env")
 
 # Keep embedding requests small to avoid provider token limits.
-EMBEDDING_BATCH_SIZE = 5
 
 
+EMBEDDING_BATCH_SIZE=1536
 def connect_to_supabase() -> PGVector:
 
     database_url = os.getenv("SUPABASE_DATABASE_URL")
-    api_key = os.getenv("OPENAI_API_KEY")
+    api_key = os.getenv("GEMINI_API_KEY")
 
     if not database_url:
         raise ValueError("SUPABASE_DATABASE_URL is missing.")
 
     if not api_key:
-        raise ValueError("OPENAI_API_KEY is missing.")
+        raise ValueError("GEMINI _API_KEY is missing.")
 
-    embeddings = OpenAIEmbeddings(
-        model="text-embedding-3-small",
+    embeddings = GoogleGenerativeAIEmbeddings(
+        model="gemini-embedding-001",
         api_key=api_key,
-        chunk_size=EMBEDDING_BATCH_SIZE,
+        chunk_size=1536,
     )
 
     vectorstore = PGVector(
@@ -60,7 +59,7 @@ def add_documents(
 
     stored_ids = []
 
-    for start in range(0, len(documents), EMBEDDING_BATCH_SIZE):
+    for start in range(0, len(documents),EMBEDDING_BATCH_SIZE):
 
         end = start + EMBEDDING_BATCH_SIZE
 
