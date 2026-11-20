@@ -18,3 +18,4 @@ pdfplumber
 slowapi
 requests
 pymupdf
+langchain-google-genai==4.5.1
